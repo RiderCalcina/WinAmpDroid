@@ -194,8 +194,8 @@ fun RetroDesktopLayout(
                 onVolumeChange = onVolumeChange,
                 onBalanceChange = onBalanceChange,
                 onSeek = onSeek,
-                isShade = isMainShade,
-                onToggleShade = onToggleMainShade,
+                isShade = false,
+                onToggleShade = {},
                 onLoupeChange = { loupeInfo = it },
                 onOpenAbout = { showAboutDialog = true },
                 onOpenMilkdropFullscreen = { showFullscreenMilkdrop = true },
@@ -213,8 +213,8 @@ fun RetroDesktopLayout(
                 onBandChange = onBandChange,
                 onPresetClick = { showPresetDialog = true },
                 onClose = {},
-                isShade = isEqShade,
-                onToggleShade = onToggleEqShade,
+                isShade = false,
+                onToggleShade = {},
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -252,9 +252,9 @@ fun RetroDesktopLayout(
                     controlCenterInitialTab = tab
                     showControlCenterDialog = true
                 },
-                isShade = isPlShade,
-                onToggleShade = onTogglePlShade,
-                modifier = if (isPlShade) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().weight(1f)
+                isShade = false,
+                onToggleShade = {},
+                modifier = Modifier.fillMaxWidth().weight(1f)
             )
         }
 

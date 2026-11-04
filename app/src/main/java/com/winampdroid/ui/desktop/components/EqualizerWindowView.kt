@@ -66,21 +66,16 @@ fun EqualizerWindowView(
                 .fillMaxSize()
                 .pointerInput(isShade) {
                     detectTapGestures(
-                        onDoubleTap = { offset ->
-                            val y = offset.y / winampScaleY
-                            if (y in 0f..14f) {
-                                onToggleShade()
-                            }
-                        },
+                        onDoubleTap = { /* Permanente, no minimizar */ },
                         onTap = { offset ->
                             val x = offset.x / winampScaleX
                             val y = offset.y / winampScaleY
 
                             when {
                                 // Close button: x [264..273], y [3..12] (Permanente, no cerrar)
-                                x in 260f..275f && y in 0f..14f -> { /* No cerrar */ }
-                                // Shade button: x [250..260], y [0..14]
-                                x in 250f..260f && y in 0f..14f -> onToggleShade()
+                                x in 260f..275f && y in 0f..14f -> { /* Permanente, no cerrar */ }
+                                // Shade button: x [250..260], y [0..14] (Permanente, no minimizar)
+                                x in 250f..260f && y in 0f..14f -> { /* Permanente, no minimizar */ }
                                 // ON button: x [14..39], y [18..30]
                                 !isShade && x in 12f..39f && y in 16f..32f -> onToggleEq()
                                 // Presets button: x [217..261], y [18..30]

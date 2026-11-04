@@ -130,17 +130,12 @@ fun PlaylistWindowView(
                 )
                 .background(Color.Black)
         ) {
-            // 1. Skinned Top Header Bar (20px high in Winamp)
+            // 1. Skinned Top Header Bar (20px high in Winamp - Permanente, no minimizar ni cerrar)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(20.dp * scale)
                     .background(Color.Black)
-                    .pointerInput(isShade) {
-                        detectTapGestures(
-                            onDoubleTap = { onToggleShade() }
-                        )
-                    }
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val scaleX = size.width / 275f

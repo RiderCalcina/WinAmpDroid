@@ -129,9 +129,8 @@ fun MainWindowView(
                         onDoubleTap = { offset ->
                             val x = offset.x / winampScaleX
                             val y = offset.y / winampScaleY
-                            if (y in 0f..14f) {
-                                onToggleShade()
-                            } else if (!isShade && x in 20f..105f && y in 18f..65f) {
+                            // Time counter & music bars visor: double-tap to open Milkdrop fullscreen
+                            if (x in 20f..105f && y in 18f..65f) {
                                 onOpenMilkdropFullscreen()
                             }
                         },
@@ -178,9 +177,9 @@ fun MainWindowView(
 
                             when {
                                 // Close button: x [262..275], y [0..14] (Permanente, no cerrar)
-                                x in 262f..275f && y in 0f..14f -> { /* No cerrar */ }
-                                // Shade/Minimize button: x [252..262], y [0..14]
-                                x in 252f..262f && y in 0f..14f -> onToggleShade()
+                                x in 262f..275f && y in 0f..14f -> { /* Permanente, no cerrar */ }
+                                // Shade/Minimize button: x [252..262], y [0..14] (Permanente, no minimizar)
+                                x in 252f..262f && y in 0f..14f -> { /* Permanente, no minimizar */ }
                                 // Options button: x [240..252], y [0..14]
                                 x in 240f..252f && y in 0f..14f -> onEject()
                                 // Previous button: x [16..39], y [88..106]
@@ -195,10 +194,10 @@ fun MainWindowView(
                                 x in 108f..135f && y in 80f..115f -> onNext()
                                 // Eject button: x [136..158], y [89..105]
                                 x in 136f..160f && y in 85f..115f -> onEject()
-                                // EQ toggle button: x [219..242], y [58..70]
-                                x in 217f..241f && y in 56f..72f -> onToggleEq()
-                                // PL toggle button: x [242..265], y [58..70]
-                                x in 242f..266f && y in 56f..72f -> onTogglePl()
+                                // EQ toggle button: x [219..242], y [58..70] (Permanente, no cerrar)
+                                x in 217f..241f && y in 56f..72f -> { /* EQ permanente, no cerrar */ }
+                                // PL toggle button: x [242..265], y [58..70] (Permanente, no cerrar)
+                                x in 242f..266f && y in 56f..72f -> { /* PL permanente, no cerrar */ }
                                 // Shuffle button: x [164..210], y [89..104]
                                 x in 162f..209f && y in 85f..110f -> onToggleShuffle()
                                 // Repeat button: x [210..238], y [89..104]

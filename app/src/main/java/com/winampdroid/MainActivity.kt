@@ -232,13 +232,13 @@ class MainActivity : ComponentActivity() {
             var isRepeat by remember { mutableStateOf(prefs.getIsRepeat()) }
 
             val initialWindowStates = remember { prefs.loadWindowStates() }
-            var isEqOpen by remember { mutableStateOf(initialWindowStates.isEqOpen) }
-            var isPlOpen by remember { mutableStateOf(initialWindowStates.isPlOpen) }
+            var isEqOpen by remember { mutableStateOf(true) }
+            var isPlOpen by remember { mutableStateOf(true) }
             var isMilkdropOpen by remember { mutableStateOf(initialWindowStates.isMilkdropOpen) }
 
-            var isMainShade by remember { mutableStateOf(initialWindowStates.isMainShade) }
-            var isEqShade by remember { mutableStateOf(initialWindowStates.isEqShade) }
-            var isPlShade by remember { mutableStateOf(initialWindowStates.isPlShade) }
+            var isMainShade by remember { mutableStateOf(false) }
+            var isEqShade by remember { mutableStateOf(false) }
+            var isPlShade by remember { mutableStateOf(false) }
             var isMilkdropShade by remember { mutableStateOf(initialWindowStates.isMilkdropShade) }
 
             var isEqEnabled by remember { mutableStateOf(prefs.getIsEqEnabled()) }
@@ -269,12 +269,12 @@ class MainActivity : ComponentActivity() {
                 prefs.savePlaylist(tracks, currentTrackIndex)
                 prefs.saveWindowStates(
                     com.winampdroid.core.storage.WindowStates(
-                        isEqOpen = isEqOpen,
-                        isPlOpen = isPlOpen,
+                        isEqOpen = true,
+                        isPlOpen = true,
                         isMilkdropOpen = isMilkdropOpen,
-                        isMainShade = isMainShade,
-                        isEqShade = isEqShade,
-                        isPlShade = isPlShade,
+                        isMainShade = false,
+                        isEqShade = false,
+                        isPlShade = false,
                         isMilkdropShade = isMilkdropShade
                     )
                 )
@@ -662,22 +662,10 @@ class MainActivity : ComponentActivity() {
                 isEqShade = isEqShade,
                 isPlShade = isPlShade,
                 isMilkdropShade = isMilkdropShade,
-                onToggleMainShade = {
-                    isMainShade = !isMainShade
-                    saveAllSettings()
-                },
-                onToggleEqShade = {
-                    isEqShade = !isEqShade
-                    saveAllSettings()
-                },
-                onTogglePlShade = {
-                    isPlShade = !isPlShade
-                    saveAllSettings()
-                },
-                onToggleMilkdropShade = {
-                    isMilkdropShade = !isMilkdropShade
-                    saveAllSettings()
-                },
+                onToggleMainShade = {},
+                onToggleEqShade = {},
+                onTogglePlShade = {},
+                onToggleMilkdropShade = {},
                 isEqEnabled = isEqEnabled,
                 preampDb = preampDb,
                 bandsDb = bandsDb.value,
@@ -690,18 +678,9 @@ class MainActivity : ComponentActivity() {
                 onPrev = prevAction,
                 onNext = nextAction,
                 onEject = {},
-                onToggleEq = {
-                    isEqShade = !isEqShade
-                    saveAllSettings()
-                },
-                onTogglePl = {
-                    isPlShade = !isPlShade
-                    saveAllSettings()
-                },
-                onToggleMilkdrop = {
-                    isMilkdropShade = !isMilkdropShade
-                    saveAllSettings()
-                },
+                onToggleEq = {},
+                onTogglePl = {},
+                onToggleMilkdrop = {},
                 onToggleShuffle = {
                     isShuffle = !isShuffle
                     playbackService?.player?.shuffleModeEnabled = isShuffle
