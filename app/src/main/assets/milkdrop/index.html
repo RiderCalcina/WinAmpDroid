@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #song-title-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    font-family: monospace, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    text-align: center;
+    text-shadow: 0 0 4px #000000, 0 0 8px #000000, 1px 1px 2px #000000, -1px -1px 2px #000000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 100;
+    max-width: 90%;
+    word-break: break-word;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+</style>
+</head>
+<body>
+<canvas id="glcanvas"></canvas>
+<div id="song-title-overlay"></div>
+
+<script>
+window.setAudio = function(b, m, t) {
+  if (window._updateAudio) window._updateAudio(b, m, t);
+};
+
+window.setPlaying = function(p) {
+  if (window._updatePlaying) window._updatePlaying(p, false);
+};
+
+window.startMilkdrop = function() {
+  if (window._updatePlaying) window._updatePlaying(true, false);
+};
+
+window.pauseMilkdrop = function() {
+  if (window._updatePlaying) window._updatePlaying(false, true);
+};
+
+window.stopMilkdrop = function() {
+  if (window._stop) window._stop();
+};
+
+window.showSongTitle = function(title) {
+  if (window._showSongTitle) window._showSongTitle(title);
+};
+
+window.updateState = function(p, isPaused, isStopped, b, m, t) {
+  if (isStopped) {
+    if (window._stop) window._stop();
+    return;
+  }
+  if (window._updatePlaying) window._updatePlaying(p, isPaused);
+  if (p && window._updateAudio) window._updateAudio(b, m, t);
+};
+
+(function() {
+  const canvas = document.getElementById('glcanvas');
+  const songTitleEl = document.getElementById('song-title-overlay');
+  let titleFadeTimer = null;
+
+  window._showSongTitle = function(title) {
+    if (!songTitleEl || !title) return;
+    songTitleEl.textContent = title;
+    songTitleEl.style.opacity = '1.0';
+    if (titleFadeTimer) clearTimeout(titleFadeTimer);
+    titleFadeTimer = setTimeout(() => {
+      songTitleEl.style.opacity = '0.0';
+    }, 2500);
+  };
+  const gl = canvas.getContext('webgl', { antialias: false, depth: false, preserveDrawingBuffer: false })
+         || canvas.getContext('experimental-webgl');
+
+  if (!gl) {
+    console.error("WebGL context not available");
+    return;
+  }
+
+  const PRESET_NAMES = [
+    "MILKDROP [1/8]: Cosmic Warp Tunnel",
+    "MILKDROP [2/8]: Psychedelic Fluid Vortex",
+    "MILKDROP [3/8]: Electric Aurora Spectrum",
+    "MILKDROP [4/8]: Hyperspace Cyber Wormhole",
+    "MILKDROP [5/8]: Retro Cyber Horizon Grid",
+    "MILKDROP [6/8]: Bioluminescent Plasma Pulsar",
+    "MILKDROP [7/8]: Starfield Hyperdrive 3D",
+    "MILKDROP [8/8]: Super Scope Spirograph"
+  ];
+  let currentPreset = 0;
+  let lastSwitchTime = performance.now();
+  const AUTO_SWITCH_INTERVAL_MS = 7000; // Auto-switch every 7 seconds (conforme a solicitud)
+
+  function updateBanner() {
+    // Leyenda eliminada conforme a solicitud del usuario
+  }
+
+  // Audio energy inputs
+  let curBass = 0.0;
+  let curMid = 0.0;
+  let curTreble = 0.0;
+  let targetBass = 0.0;
+  let targetMid = 0.0;
+  let targetTreble = 0.0;
+
+  let isPlaying = false;
+  let animFrameId = null;
+
+  window._updateAudio = function(b, m, t) {
+    targetBass = Math.max(0.0, Math.min(1.0, b));
+    targetMid = Math.max(0.0, Math.min(1.0, m));
+    targetTreble = Math.max(0.0, Math.min(1.0, t));
+  };
+
+  // Ping-pong Framebuffers
+  let fboA, fboB, texA, texB;
+  let curWidth = 0, curHeight = 0;
+
+  function createFbo(w, h) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    return { fbo, tex };
+  }
+
+  function clearFbos() {
+    if (fboA && fboB) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fboA);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fboB);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+  }
+
+  function randomPreset() {
+    let next;
+    do {
+      next = Math.floor(Math.random() * PRESET_NAMES.length);
+    } while (next === currentPreset && PRESET_NAMES.length > 1);
+    currentPreset = next;
+    clearFbos();
+    updateBanner();
+    lastSwitchTime = performance.now();
+  }
+
+  window.nextPreset = function() {
+    currentPreset = (currentPreset + 1) % PRESET_NAMES.length;
+    clearFbos();
+    updateBanner();
+    lastSwitchTime = performance.now();
+  };
+
+  window.prevPreset = function() {
+    currentPreset = (currentPreset - 1 + PRESET_NAMES.length) % PRESET_NAMES.length;
+    clearFbos();
+    updateBanner();
+    lastSwitchTime = performance.now();
+  };
+
+  canvas.addEventListener('click', () => {
+    window.nextPreset();
+  });
+
+  // Vertex Shader
+  const vsSource = [
+    'attribute vec2 a_pos;',
+    'varying vec2 v_uv;',
+    'void main() {',
+    '  v_uv = (a_pos + 1.0) * 0.5;',
+    '  gl_Position = vec4(a_pos, 0.0, 1.0);',
+    '}'
+  ].join('\n');
+
+  // Fragment Shader: 4 distinct, fluid, non-saturating Milkdrop visualizers
+  const fsSource = [
+    'precision mediump float;',
+    'uniform sampler2D u_prevFrame;',
+    'uniform vec2 u_resolution;',
+    'uniform float u_time;',
+    'uniform float u_bass;',
+    'uniform float u_mid;',
+    'uniform float u_treble;',
+    'uniform int u_preset;',
+    'varying vec2 v_uv;',
+    '',
+    '// Classic HSV to RGB conversion for fluid rainbow cycles',
+    'vec3 hsv2rgb(vec3 c) {',
+    '  vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);',
+    '  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);',
+    '  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);',
+    '}',
+    '',
+    'void main() {',
+    '  vec2 center = vec2(0.5, 0.5);',
+    '  vec2 d = v_uv - center;',
+    '  float aspect = u_resolution.x / max(1.0, u_resolution.y);',
+    '  d.x *= aspect;',
+    '  float r = max(0.0001, length(d));',
+    '  float theta = atan(d.y, d.x);',
+    '',
+    '  vec2 warpedUV = v_uv;',
+    '  vec3 newDraw = vec3(0.0);',
+    '  float decay = 0.925;',
+    '',
+    '  // =========================================================',
+    '  // PRESET 0: Cosmic Warp Tunnel (Deep space neon cyber spiral)',
+    '  // =========================================================',
+    '  if (u_preset == 0) {',
+    '    decay = 0.93 - u_bass * 0.02;',
+    '    float zoom = 0.965 - u_bass * 0.06;',
+    '    float rot = 0.025 * sin(u_time * 0.7) + (u_treble - u_bass) * 0.035;',
+    '    float warp = 0.015 * sin(r * 18.0 - u_time * 3.5);',
+    '    float newTheta = theta + rot;',
+    '    float newR = max(0.0001, pow(r, zoom) + warp);',
+    '    vec2 newD = vec2(cos(newTheta), sin(newTheta)) * newR;',
+    '    newD.x /= aspect;',
+    '    warpedUV = center + newD;',
+    '',
+    '    // Rotating neon laser tunnel spokes (Cyan & Magenta) - fast power calculation without pow()',
+    '    float cSpk = abs(cos(newTheta * 4.0 + u_time * 1.5));',
+    '    float cSpk2 = cSpk * cSpk;',
+    '    float cSpk4 = cSpk2 * cSpk2;',
+    '    float spokes = cSpk4 * cSpk4 * exp(-r * 2.2);',
+    '    vec3 spokeColor = mix(vec3(0.0, 0.85, 1.0), vec3(1.0, 0.05, 0.7), 0.5 + 0.5 * sin(u_time * 1.2));',
+    '    newDraw += spokeColor * spokes * (0.6 + u_treble * 1.2);',
+    '',
+    '    // Pulsating central cosmic core',
+    '    float core = exp(-r * (6.0 - u_bass * 3.0));',
+    '    newDraw += vec3(0.9, 0.2, 1.0) * core * (0.8 + u_bass * 1.6);',
+    '',
+    '    // Laser tunnel concentric rings',
+    '    float rings = abs(sin(r * 32.0 - u_time * 5.0)) * exp(-r * 3.0);',
+    '    newDraw += vec3(0.0, 1.0, 0.8) * rings * 0.35 * (1.0 + u_bass * 1.5);',
+    '',
+    '  // =========================================================',
+    '  // PRESET 1: Psychedelic Fluid Vortex (Swirling iridescent liquid)',
+    '  // =========================================================',
+    '  } else if (u_preset == 1) {',
+    '    decay = 0.94;',
+    '    float twist = 0.07 * sin(r * 10.0 + u_time * 2.0) + (u_bass - u_treble) * 0.05;',
+    '    float newTheta = theta + twist;',
+    '    float zoom = 0.96 - u_bass * 0.05;',
+    '    float newR = max(0.0001, r * zoom + 0.012 * cos(newTheta * 5.0 + u_time * 2.5));',
+    '    vec2 newD = vec2(cos(newTheta), sin(newTheta)) * newR;',
+    '    newD.x /= aspect;',
+    '    warpedUV = center + newD;',
+    '',
+    '    // Fluid rainbow plasma dynamic ripples',
+    '    float wave1 = sin(d.x * 12.0 + u_time * 2.0);',
+    '    float wave2 = cos(d.y * 12.0 - u_time * 2.0);',
+    '    float fluidPattern = sin(wave1 + wave2 + r * 15.0 - u_time * 3.0);',
+    '    vec3 rainbow = hsv2rgb(vec3(fract(u_time * 0.15 + r * 1.5 + fluidPattern * 0.2), 0.85, 0.9));',
+    '    newDraw += rainbow * smoothstep(0.4, 0.9, abs(fluidPattern)) * (0.45 + u_mid * 0.8);',
+    '',
+    '    // Bass-driven liquid ripple shockwaves',
+    '    float ring = exp(-abs(fract(r * 3.0 - u_time * 1.5) - 0.5) * 20.0);',
+    '    newDraw += vec3(1.0, 0.6, 0.0) * ring * (u_bass * 1.2);',
+    '',
+    '  // =========================================================',
+    '  // PRESET 2: Electric Aurora Spectrum (Glowing oscilloscope ribbons)',
+    '  // =========================================================',
+    '  } else if (u_preset == 2) {',
+    '    decay = 0.92;',
+    '    // Ethereal vertical drift like northern lights',
+    '    vec2 uvW = v_uv;',
+    '    uvW.y += 0.008 * (1.0 + u_mid * 1.5);',
+    '    uvW.x += sin(v_uv.y * 14.0 + u_time * 2.0) * 0.015 * (1.0 + u_bass * 2.0);',
+    '    warpedUV = uvW;',
+    '',
+    '    // Dancing green & cobalt blue oscilloscope ribbon',
+    '    float osc1 = 0.14 * sin(d.x * 15.0 + u_time * 3.5) * (0.3 + u_bass * 1.8);',
+    '    float osc2 = 0.08 * cos(d.x * 25.0 - u_time * 4.0) * (0.2 + u_treble * 1.5);',
+    '    float distOsc = abs(d.y - (osc1 + osc2));',
+    '    float lineGlow = exp(-distOsc * 55.0);',
+    '    vec3 auroraGreen = vec3(0.05, 1.0, 0.45) * lineGlow * (0.9 + u_bass * 1.5);',
+    '    vec3 auroraBlue = vec3(0.0, 0.4, 1.0) * exp(-distOsc * 18.0) * (0.7 + u_mid * 1.0);',
+    '    newDraw += auroraGreen + auroraBlue;',
+    '',
+    '    // Ambient atmospheric curtain glow',
+    '    float curtain = exp(-abs(d.y) * 4.0) * (0.5 + 0.5 * sin(d.x * 8.0 + u_time));',
+    '    newDraw += vec3(0.1, 0.0, 0.35) * curtain * 0.4;',
+    '',
+    '  // =========================================================',
+    '  // PRESET 3: Hyperspace Cyber Wormhole (High-speed radial warp)',
+    '  // =========================================================',
+    '  } else if (u_preset == 3) {',
+    '    decay = 0.91 - u_bass * 0.03;',
+    '    float speedZoom = 0.94 - u_bass * 0.08;',
+    '    float rotSpeed = 0.04 + u_mid * 0.04;',
+    '    float newTheta = theta + rotSpeed;',
+    '    float newR = max(0.0001, r * speedZoom + 0.02 * sin(u_time * 5.0 + r * 30.0));',
+    '    vec2 newD = vec2(cos(newTheta), sin(newTheta)) * newR;',
+    '    newD.x /= aspect;',
+    '    warpedUV = center + newD;',
+    '',
+    '    // Hexagonal geometry tunnel structure',
+    '    float hex = abs(cos(newTheta * 3.0 + u_time * 0.8));',
+    '    float hexGrid = exp(-abs(fract(r * 8.0 - u_time * 2.5) - 0.5) * 16.0);',
+    '    vec3 hexColor = mix(vec3(1.0, 0.3, 0.0), vec3(0.0, 0.9, 1.0), hex);',
+    '    newDraw += hexColor * hexGrid * (0.5 + u_bass * 1.4);',
+    '',
+    '    // High-speed cyber laser starbursts - fast power calculation without pow()',
+    '    float sBurst = abs(sin(newTheta * 6.0));',
+    '    float sB2 = sBurst * sBurst;',
+    '    float sB4 = sB2 * sB2;',
+    '    float sB8 = sB4 * sB4;',
+    '    float starburst = sB8 * sB8 * exp(-r * 1.5);',
+    '    newDraw += vec3(1.0, 0.9, 0.3) * starburst * (0.6 + u_treble * 1.8);',
+    '',
+    '  // =========================================================',
+    '  // PRESET 4: Retro Cyber Horizon Grid (Outrun / Synthwave)',
+    '  // =========================================================',
+    '  } else if (u_preset == 4) {',
+    '    decay = 0.92;',
+    '    vec2 pUV = v_uv;',
+    '    float horizon = 0.46;',
+    '    if (pUV.y < horizon) {',
+    '      float depth = max(0.015, (horizon - pUV.y));',
+    '      float worldZ = 1.0 / depth;',
+    '      float worldX = (pUV.x - 0.5) * worldZ;',
+    '      float gridX = fract(worldX * 3.5);',
+    '      float gridZ = fract(worldZ * 0.8 - u_time * (2.2 + u_bass * 3.0));',
+    '      float line = smoothstep(0.09, 0.02, min(gridX, 1.0 - gridX)) + smoothstep(0.09, 0.02, min(gridZ, 1.0 - gridZ));',
+    '      vec3 gridCol = mix(vec3(0.95, 0.0, 0.85), vec3(0.0, 0.9, 1.0), sin(worldZ * 0.2 + u_time));',
+    '      newDraw += gridCol * line * exp(-depth * 3.5) * (0.8 + u_bass * 1.5);',
+    '    } else {',
+    '      vec2 sunD = vec2(d.x, d.y - 0.16);',
+    '      float sunR = length(sunD);',
+    '      float sunDisc = smoothstep(0.18 + u_bass * 0.04, 0.17, sunR);',
+    '      float sunBars = step(0.006, fract(sunD.y * 20.0));',
+    '      vec3 sunCol = mix(vec3(1.0, 0.05, 0.45), vec3(1.0, 0.85, 0.0), clamp(sunD.y * 3.0, 0.0, 1.0));',
+    '      newDraw += sunCol * sunDisc * sunBars;',
+    '      float hLine = exp(-abs(pUV.y - horizon) * 75.0);',
+    '      newDraw += vec3(0.0, 1.0, 1.0) * hLine * (1.0 + u_treble * 1.5);',
+    '    }',
+    '    warpedUV = v_uv;',
+    '',
+    '  // =========================================================',
+    '  // PRESET 5: Bioluminescent Plasma Pulsar',
+    '  // =========================================================',
+    '  } else if (u_preset == 5) {',
+    '    decay = 0.93 - u_bass * 0.02;',
+    '    float zoom = 0.95 - u_bass * 0.06;',
+    '    float spin = 0.03 * sin(u_time * 1.2) + (u_treble - u_bass) * 0.04;',
+    '    float newTheta = theta + spin;',
+    '    float newR = max(0.0001, pow(r, zoom) + 0.02 * sin(newTheta * 7.0 + u_time * 4.0));',
+    '    vec2 newD = vec2(cos(newTheta), sin(newTheta)) * newR;',
+    '    newD.x /= aspect;',
+    '    warpedUV = center + newD;',
+    '',
+    '    float plasma = sin(d.x * 16.0 + sin(d.y * 16.0 + u_time * 3.0));',
+    '    plasma += cos(d.y * 14.0 + sin(d.x * 14.0 - u_time * 2.5));',
+    '    float arc = exp(-abs(plasma) * (12.0 - u_treble * 6.0));',
+    '    vec3 arcColor = mix(vec3(0.1, 0.35, 1.0), vec3(0.0, 1.0, 0.65), 0.5 + 0.5 * sin(u_time * 2.0));',
+    '    newDraw += arcColor * arc * (0.8 + u_treble * 2.0);',
+    '',
+    '    float core = exp(-r * (7.5 - u_bass * 3.5));',
+    '    newDraw += vec3(0.2, 1.0, 0.4) * core * (1.0 + u_bass * 2.0);',
+    '',
+    '  // =========================================================',
+    '  // PRESET 6: Starfield Hyperdrive 3D',
+    '  // =========================================================',
+    '  } else if (u_preset == 6) {',
+    '    decay = 0.89;',
+    '    float warpSpeed = 0.91 - u_bass * 0.09;',
+    '    float newR = max(0.0001, r * warpSpeed);',
+    '    float newTheta = theta + 0.015 * sin(u_time);',
+    '    vec2 newD = vec2(cos(newTheta), sin(newTheta)) * newR;',
+    '    newD.x /= aspect;',
+    '    warpedUV = center + newD;',
+    '',
+    '    float starAngle = fract(theta * 3.1830988);',
+    '    float starDist = fract(1.0 / (r * 0.8 + 0.01) + u_time * (1.5 + u_bass * 2.5));',
+    '    float star = smoothstep(0.05, 0.0, abs(fract(theta * 10.0) - 0.5)) * smoothstep(0.08, 0.0, abs(starDist - 0.5));',
+    '    vec3 starCol = mix(vec3(0.7, 0.85, 1.0), vec3(1.0, 0.45, 0.15), fract(starAngle * 3.0));',
+    '    newDraw += starCol * star * (1.0 + u_bass * 2.5);',
+    '',
+    '    float speedline = pow(abs(cos(theta * 16.0 + u_time * 3.0)), 16.0) * exp(-r * 1.8);',
+    '    newDraw += vec3(0.15, 0.6, 1.0) * speedline * (0.5 + u_treble * 1.5);',
+    '',
+    '  // =========================================================',
+    '  // PRESET 7: Super Scope Spirograph (Kaleidoscopic Lissajous)',
+    '  // =========================================================',
+    '  } else {',
+    '    decay = 0.94;',
+    '    float rot = 0.02 * sin(u_time * 0.8);',
+    '    float newTheta = theta + rot;',
+    '    float newR = max(0.0001, r * 0.97 + 0.01 * cos(newTheta * 6.0));',
+    '    vec2 newD = vec2(cos(newTheta), sin(newTheta)) * newR;',
+    '    newD.x /= aspect;',
+    '    warpedUV = center + newD;',
+    '',
+    '    float k = 5.0 + floor(u_mid * 3.0);',
+    '    float spiroR = 0.25 * (0.8 + 0.3 * sin(theta * k + u_time * 2.5));',
+    '    float distSpiro = abs(r - spiroR);',
+    '    float spiroGlow = exp(-distSpiro * (40.0 - u_treble * 15.0));',
+    '    vec3 spiroColor = hsv2rgb(vec3(fract(u_time * 0.1 + theta * 0.3), 0.9, 1.0));',
+    '    newDraw += spiroColor * spiroGlow * (1.0 + u_mid * 1.5);',
+    '',
+    '    float dots = pow(abs(sin(theta * 12.0 - u_time * 4.0)), 20.0) * exp(-abs(r - 0.35) * 20.0);',
+    '    newDraw += vec3(1.0, 0.9, 0.4) * dots * (0.8 + u_bass * 2.0);',
+    '  }',
+    '',
+    '  warpedUV = clamp(warpedUV, 0.001, 0.999);',
+    '  vec4 prevColor = texture2D(u_prevFrame, warpedUV);',
+    '',
+    '  // Soft combination prevents runaway light saturation (no white blowout!)',
+    '  vec3 feedback = prevColor.rgb * decay;',
+    '  vec3 col = max(feedback, newDraw * 0.85) + newDraw * 0.18;',
+    '',
+    '  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);',
+    '}'
+  ].join('\n');
+
+  function createShader(gl, type, source) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, source);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      console.error(gl.getShaderInfoLog(s));
+      gl.deleteShader(s);
+      return null;
+    }
+    return s;
+  }
+
+  const vs = createShader(gl, gl.VERTEX_SHADER, vsSource);
+  const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+
+  const a_pos = gl.getAttribLocation(prog, 'a_pos');
+  const u_prevFrame = gl.getUniformLocation(prog, 'u_prevFrame');
+  const u_resolution = gl.getUniformLocation(prog, 'u_resolution');
+  const u_time = gl.getUniformLocation(prog, 'u_time');
+  const u_bass = gl.getUniformLocation(prog, 'u_bass');
+  const u_mid = gl.getUniformLocation(prog, 'u_mid');
+  const u_treble = gl.getUniformLocation(prog, 'u_treble');
+  const u_preset = gl.getUniformLocation(prog, 'u_preset');
+
+  // Lightweight pass-through copy shader for displaying the FBO (saves 50% GPU fragment load!)
+  const copyFsSource = [
+    'precision mediump float;',
+    'uniform sampler2D u_copyTex;',
+    'varying vec2 v_uv;',
+    'void main() {',
+    '  gl_FragColor = texture2D(u_copyTex, v_uv);',
+    '}'
+  ].join('\n');
+  const copyFs = createShader(gl, gl.FRAGMENT_SHADER, copyFsSource);
+  const copyProg = gl.createProgram();
+  gl.attachShader(copyProg, vs);
+  gl.attachShader(copyProg, copyFs);
+  gl.linkProgram(copyProg);
+  const a_copyPos = gl.getAttribLocation(copyProg, 'a_pos');
+  const u_copyTex = gl.getUniformLocation(copyProg, 'u_copyTex');
+
+  // Full-screen Quad geometry
+  const quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1, -1,
+     1, -1,
+    -1,  1,
+    -1,  1,
+     1, -1,
+     1,  1
+  ]), gl.STATIC_DRAW);
+
+  function resize() {
+    const w = canvas.clientWidth || window.innerWidth || 300;
+    const h = canvas.clientHeight || window.innerHeight || 150;
+    if (w !== curWidth || h !== curHeight) {
+      curWidth = w;
+      curHeight = h;
+      canvas.width = w;
+      canvas.height = h;
+
+      // Free previous FBOs & textures to prevent VRAM memory leak
+      if (texA) gl.deleteTexture(texA);
+      if (texB) gl.deleteTexture(texB);
+      if (fboA) gl.deleteFramebuffer(fboA);
+      if (fboB) gl.deleteFramebuffer(fboB);
+
+      const objA = createFbo(w, h);
+      fboA = objA.fbo;
+      texA = objA.tex;
+
+      const objB = createFbo(w, h);
+      fboB = objB.fbo;
+      texB = objB.tex;
+
+      clearFbos();
+    }
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  if (window.ResizeObserver) {
+    try {
+      new ResizeObserver(() => resize()).observe(canvas);
+    } catch (e) {}
+  }
+  updateBanner();
+
+  let startTime = performance.now();
+  let toggle = false;
+
+  function render() {
+    // If not playing, stop scheduling animation frames (zero GPU & CPU resource consumption!)
+    if (!isPlaying) {
+      animFrameId = null;
+      return;
+    }
+
+    animFrameId = requestAnimationFrame(render);
+
+    const now = performance.now();
+
+    // Auto-switch preset randomly every 15 seconds while playing
+    if (now - lastSwitchTime >= AUTO_SWITCH_INTERVAL_MS) {
+      randomPreset();
+    }
+
+    // Pull audio energy directly from AndroidBridge if available (Zero-IPC pull pattern!)
+    if (window.AndroidBridge) {
+      try {
+        const state = window.AndroidBridge.getPlaybackState();
+        if (state === 0) {
+          if (isPlaying) window._stop();
+          return;
+        } else if (state === 2) {
+          // Paused - do not decay audio, keep rendering static
+        } else {
+          targetBass = window.AndroidBridge.getBass();
+          targetMid = window.AndroidBridge.getMid();
+          targetTreble = window.AndroidBridge.getTreble();
+        }
+      } catch(e) {}
+    }
+
+    // Smooth audio envelope decay
+    curBass += (targetBass - curBass) * 0.35;
+    curMid += (targetMid - curMid) * 0.35;
+    curTreble += (targetTreble - curTreble) * 0.35;
+    targetBass *= 0.94;
+    targetMid *= 0.94;
+    targetTreble *= 0.94;
+
+    const t = (now - startTime) * 0.001;
+
+    const readTex = toggle ? texA : texB;
+    const writeFbo = toggle ? fboB : fboA;
+
+    // 1. Render Milkdrop procedural simulation to offscreen FBO
+    gl.bindFramebuffer(gl.FRAMEBUFFER, writeFbo);
+    gl.viewport(0, 0, curWidth, curHeight);
+    gl.useProgram(prog);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    gl.enableVertexAttribArray(a_pos);
+    gl.vertexAttribPointer(a_pos, 2, gl.FLOAT, false, 0, 0);
+
+    gl.uniform2f(u_resolution, curWidth, curHeight);
+    gl.uniform1f(u_time, t);
+    gl.uniform1f(u_bass, curBass);
+    gl.uniform1f(u_mid, curMid);
+    gl.uniform1f(u_treble, curTreble);
+    gl.uniform1i(u_preset, currentPreset);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, readTex);
+    gl.uniform1i(u_prevFrame, 0);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // 2. High-speed Blit to screen canvas using the lightweight copy shader (50% GPU savings!)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, curWidth, curHeight);
+    gl.useProgram(copyProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    gl.enableVertexAttribArray(a_copyPos);
+    gl.vertexAttribPointer(a_copyPos, 2, gl.FLOAT, false, 0, 0);
+
+    const resultTex = toggle ? texB : texA;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, resultTex);
+    gl.uniform1i(u_copyTex, 0);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    toggle = !toggle;
+  }
+
+  // Complete shutdown on Stop: clears canvas to pitch black & hides banner
+  window._stop = function() {
+    isPlaying = false;
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+    targetBass = 0.0;
+    targetMid = 0.0;
+    targetTreble = 0.0;
+    curBass = 0.0;
+    curMid = 0.0;
+    curTreble = 0.0;
+
+    clearFbos();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, curWidth, curHeight);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    if (songTitleEl) {
+      songTitleEl.style.opacity = '0';
+    }
+  };
+
+  // Controlled start/stop from Android
+  window._updatePlaying = function(playing, isPaused) {
+    const wasPlaying = isPlaying;
+    isPlaying = !!playing;
+
+    if (isPlaying) {
+      if (!wasPlaying) {
+        lastSwitchTime = performance.now();
+        if (!animFrameId) {
+          animFrameId = requestAnimationFrame(render);
+        }
+      }
+    } else {
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+      }
+      if (!isPaused) {
+        window._stop();
+      }
+    }
+  };
+
+  // Initially off and pitch black (zero visual clutter when stopped)
+  window._stop();
+})();
+</script>
+</body>
+</html>

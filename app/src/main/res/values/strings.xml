@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WinAmpDroid</string>
+    <string name="channel_name">WinAmpDroid Playback</string>
+    <string name="channel_description">Media playback controls and status for WinAmpDroid</string>
+    <string name="widget_description">Reproductor clásico retro de Winamp para la pantalla de inicio</string>
+</resources>
