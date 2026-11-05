@@ -28,10 +28,11 @@ Recrea con exactitud milimétrica la interfaz, los sonidos y la mística del rep
 
 ## 🚀 Características Principales
 
-* 📻 **Diseño Retro Clásico de 3 Ventanas:**
-  * **MainWindow:** Panel frontal con botones de reproducción, marquesina de texto bitmap, contador de tiempo digital y analizador de espectro.
-  * **EqualizerWindow:** Ecualizador analógico de 10 bandas con curva spline reactiva y control de preamplificador (Preamp).
-  * **PlaylistWindow:** Lista de canciones interactiva con búsqueda rápida, barra de desplazamiento táctil y seguimiento automático de la canción que suena.
+* 📻 **Diseño Retro Clásico de 3 Ventanas Permanentes:**
+  * **MainWindow:** Panel frontal con botones de reproducción, marquesina de texto bitmap, contador de tiempo digital y analizador de espectro de 19 bandas.
+  * **EqualizerWindow:** Ecualizador analógico de 10 bandas con curva spline reactiva y control de preamplificador (Preamp), acoplado de forma fija a tamaño completo.
+  * **PlaylistWindow:** Lista de canciones interactiva con búsqueda rápida, barra de desplazamiento táctil y seguimiento automático de la canción que suena, extendiéndose verticalmente por el resto de la pantalla.
+  * *Diseño fijo a prueba de toques accidentales:* Las ventanas se mantienen acopladas y expandidas de manera continua sin botones de cierre o minimización que interrumpan tu experiencia.
 * 🎨 **Skins Clásicas y +65,000 Skins Online:**
   * Compatible con cualquier skin original de PC en formato `.wsz`.
   * **Skin Museum Integrado:** Explora y descarga miles de skins directamente desde la aplicación con un solo toque.
@@ -54,9 +55,9 @@ Recrea con exactitud milimétrica la interfaz, los sonidos y la mística del rep
 
 ## 📥 Cómo Instalar en tu Celular
 
-1. Dirígete a la pestaña de **[Releases](../../releases)** de este repositorio.
-2. Descarga el archivo **`WinAmpDroid-v1.0.0-release.apk`**.
-3. En tu teléfono Android, abre el archivo descargado y presiona **Instalar**. *(Si tu teléfono lo solicita, permite la instalación de aplicaciones de fuentes desconocidas)*.
+1. Dirígete a la pestaña de **[Releases](../../releases)** de este repositorio (o toma el archivo `app-release.apk` generado en tu compilación local).
+2. Descarga o transfiere el archivo **`app-release.apk`** a tu celular.
+3. En tu teléfono Android, abre el archivo descargado y presiona **Instalar**. *(Si tu teléfono lo solicita, permite la instalación de fuentes desconocidas)*.
 4. ¡Abre **WinAmpDroid**, carga tu música y disfruta del clásico sonido retro!
 
 ---
@@ -66,10 +67,10 @@ Recrea con exactitud milimétrica la interfaz, los sonidos y la mística del rep
 | Gesto / Acción | ¿Qué hace? |
 | :--- | :--- |
 | **Doble toque en el reloj digital (`00:00`) o en las barras** | Abre el visualizador **Milkdrop a pantalla completa**. |
-| **Doble toque en cualquier barra de título** | Alterna el **Modo Windowshade** (contrae la ventana a una barra compacta). |
 | **Doble toque en una canción de la Playlist** | Inicia la reproducción inmediata del tema seleccionado. |
 | **Toque sobre el Rayo de Winamp** | Abre la ventana de créditos y Acerca de. |
 | **Girar el celular a horizontal** | Activa la pantalla panorámica Milkdrop. |
+| **Pila de Ventanas Fijas** | MainWindow, Equalizer y Playlist están ancladas de forma continua a pantalla completa para evitar minimizaciones accidentales. |
 
 ---
 
