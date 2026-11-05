@@ -54,11 +54,10 @@ jobs:
       - name: Prepare Release Assets
         run: |
           mkdir -p dist
-          find app/build/outputs -type f -name "*debug*.apk" -exec cp {} dist/WinAmpDroid-v1.0.0-debug.apk \;
-          find app/build/outputs -type f -name "*release*.apk" -exec cp {} dist/WinAmpDroid-v1.0.0-release.apk \;
-          find app/build/outputs -type f -name "*.aab" -exec cp {} dist/WinAmpDroid-v1.0.0-release.aab \;
-          echo "### Binarios preparados en dist/:" >> $GITHUB_STEP_SUMMARY
-          ls -lh dist/ | tee -a $GITHUB_STEP_SUMMARY
+          cp app/build/outputs/apk/debug/*.apk dist/WinAmpDroid-v1.0.0-debug.apk 2>/dev/null || true
+          cp app/build/outputs/apk/release/*.apk dist/WinAmpDroid-v1.0.0-release.apk 2>/dev/null || true
+          cp app/build/outputs/bundle/release/*.aab dist/WinAmpDroid-v1.0.0-release.aab 2>/dev/null || true
+          ls -la dist/
 
       - name: Upload Binaries Artifact
         uses: actions/upload-artifact@v4
