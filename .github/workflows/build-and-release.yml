@@ -51,25 +51,20 @@ jobs:
         run: |
           ./gradlew bundleRelease --stacktrace 2>&1 | tee build_bundle.log || (echo "### Gradle Build Bundle Failed" >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && tail -n 80 build_bundle.log >> $GITHUB_STEP_SUMMARY && echo '```' >> $GITHUB_STEP_SUMMARY && exit 1)
 
-      - name: Upload Debug APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: WinAmpDroid-Debug-APK
-          path: app/build/**/debug/*.apk
-          retention-days: 14
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p dist
+          find app/build/outputs -type f -name "*debug*.apk" -exec cp {} dist/WinAmpDroid-v1.0.0-debug.apk \;
+          find app/build/outputs -type f -name "*release*.apk" -exec cp {} dist/WinAmpDroid-v1.0.0-release.apk \;
+          find app/build/outputs -type f -name "*.aab" -exec cp {} dist/WinAmpDroid-v1.0.0-release.aab \;
+          echo "### Binarios preparados en dist/:" >> $GITHUB_STEP_SUMMARY
+          ls -lh dist/ | tee -a $GITHUB_STEP_SUMMARY
 
-      - name: Upload Release APK Artifact
+      - name: Upload Binaries Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WinAmpDroid-Release-APK
-          path: app/build/**/release/*.apk
-          retention-days: 30
-
-      - name: Upload Release AAB Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: WinAmpDroid-Release-AAB
-          path: app/build/**/*.aab
+          name: WinAmpDroid-Binaries
+          path: dist/*
           retention-days: 30
 
       - name: Create GitHub Release
@@ -80,9 +75,7 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: |
-            app/build/**/*.apk
-            app/build/**/*.aab
+          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
