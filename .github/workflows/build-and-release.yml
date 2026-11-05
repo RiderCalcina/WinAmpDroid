@@ -54,9 +54,10 @@ jobs:
       - name: Prepare Release Assets
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/*.apk dist/WinAmpDroid-v1.0.0-debug.apk 2>/dev/null || true
-          cp app/build/outputs/apk/release/*.apk dist/WinAmpDroid-v1.0.0-release.apk 2>/dev/null || true
-          cp app/build/outputs/bundle/release/*.aab dist/WinAmpDroid-v1.0.0-release.aab 2>/dev/null || true
+          find app/build -type f -name "*debug*.apk" -exec cp -v {} dist/WinAmpDroid-v1.0.0-debug.apk \; || true
+          find app/build -type f -name "*release*.apk" -exec cp -v {} dist/WinAmpDroid-v1.0.0-release.apk \; || true
+          find app/build -type f -name "*.aab" -exec cp -v {} dist/WinAmpDroid-v1.0.0-release.aab \; || true
+          echo "=== DIST CONTENTS ==="
           ls -la dist/
 
       - name: Upload Binaries Artifact
